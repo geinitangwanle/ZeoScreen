@@ -1,0 +1,8 @@
+{
+  "held_out_accuracy": 0.7434112381899552,
+  "n_samples": 30164,
+  "n_classes": 230,
+  "n_features": 485,
+  "shap_sample_size": 64,
+  "shap_shape_note": "array format samples-first shape=(64, 485, 223)"
+}

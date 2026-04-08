@@ -18,3 +18,18 @@ python scripts/build_database.py
 
 - `paper_table` 采用“每篇文献一行”规范化（`doi` 优先，否则 `title+year`）。
 - `synthesis_routes.paper_id` 允许为空；当原始数据缺失 DOI 且缺失标题时，不强行映射到文献表。
+
+复现 ZeoSyn baseline（Random Forest）：
+
+```bash
+python scripts/reproduce_zeosyn_baseline.py
+```
+
+输出目录：
+
+- `outputs/baseline_rf/metrics.json`
+- `outputs/baseline_rf/classification_report.txt`
+- `outputs/baseline_rf/rf_feature_importance.csv`
+- `outputs/baseline_rf/shap_global_importance.csv`
+- `outputs/baseline_rf/shap_class_sensitivity_top20.csv`
+- `outputs/baseline_rf/shap_summary.png`
