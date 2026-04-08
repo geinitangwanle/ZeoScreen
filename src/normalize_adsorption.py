@@ -1,7 +1,6 @@
 """
-Step 2: Normalize raw LLM-extracted records.
-        Standardizes units, gas names, measurement types, and numeric fields.
-
+Step 2: Normalize raw LLM-extracted records.Standardizes units, gas names, measurement types, and numeric fields.
+        对 LLM 提取的原始记录进行规范化。标准化单位、气体名称、测量类型和数值字段。
 Input:  outputs/extracted_raw.jsonl
 Output: outputs/normalized_records.csv
 
@@ -21,7 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INPUT_FILE = os.path.join(ROOT, "outputs", "extracted_raw.jsonl")
 OUTPUT_FILE = os.path.join(ROOT, "outputs", "normalized_records.csv")
 
-# Columns that will be carried into the next step
+# 进入下一步匹配流程时保留的标准列集合
 OUTPUT_COLS = [
     "paper_id", "sample_label", "activation_condition", "gas",
     "uptake_value", "uptake_unit", "temperature_k", "pressure_bar",
@@ -33,9 +32,9 @@ OUTPUT_COLS = [
 # Unit normalisation
 # ---------------------------------------------------------------------------
 
-# Each entry: (regex pattern, canonical string, numeric_factor)
-# numeric_factor: multiply uptake_value by this to convert to the canonical unit.
-# For most cases the LLM already gives the right number; we just rename.
+# 每条规则: (正则模式, 规范单位, 数值换算因子)
+# numeric_factor 表示 uptake_value 乘以该因子后转换到规范单位；
+# 当前流程多数场景只做单位名标准化，数值通常不变。
 UNIT_RULES = [
     (r"mmol\s*/\s*g",               "mmol/g",       1.0),
     (r"mol\s*/\s*kg",               "mmol/g",       1.0),   # 1 mol/kg = 1 mmol/g
@@ -71,6 +70,7 @@ GAS_ALIASES = {
 
 
 def normalize_unit(unit):
+    # 将同义单位映射到统一写法，降低后续统计和去重噪声
     if pd.isna(unit) or unit is None:
         return None
     for pattern, canonical, _ in UNIT_RULES:
@@ -80,6 +80,7 @@ def normalize_unit(unit):
 
 
 def normalize_gas(gas):
+    # 气体名称标准化（如 carbon dioxide -> CO2）
     if pd.isna(gas) or gas is None:
         return None
     key = str(gas).strip().lower()
@@ -87,6 +88,7 @@ def normalize_gas(gas):
 
 
 def normalize_measurement_type(mtype):
+    # 测试方法归一化到有限标签，避免自由文本造成类别碎片化
     if pd.isna(mtype) or mtype is None:
         return None
     m = str(mtype).lower()
@@ -129,7 +131,7 @@ def main():
     df = pd.DataFrame(records)
     print(f"Loaded {len(df)} raw records.")
 
-    # Normalize fields
+    # 逐列执行标准化：单位、气体、测试类型
     if "uptake_unit" in df.columns:
         df["uptake_unit"] = df["uptake_unit"].apply(normalize_unit)
     if "gas" in df.columns:
@@ -137,19 +139,19 @@ def main():
     if "measurement_type" in df.columns:
         df["measurement_type"] = df["measurement_type"].apply(normalize_measurement_type)
 
-    # Coerce numerics
+    # 关键数值列强制转为数值，非法值记为 NaN
     for col in ("uptake_value", "temperature_k", "pressure_bar", "selectivity_value"):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    # Drop rows that have neither uptake nor selectivity data (LLM noise)
+    # 删除既无 uptake 也无 selectivity 的噪声行（常见于 LLM 误提取）
     has_uptake = df.get("uptake_value", pd.Series(dtype=float)).notna()
     has_sel = df.get("selectivity_value", pd.Series(dtype=float)).notna()
     before = len(df)
     df = df[has_uptake | has_sel]
     print(f"Dropped {before - len(df)} rows with no uptake or selectivity value.")
 
-    # Ensure all output columns exist
+    # 补齐输出 schema 并按固定列顺序导出
     for col in OUTPUT_COLS:
         if col not in df.columns:
             df[col] = None

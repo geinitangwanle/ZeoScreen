@@ -1,7 +1,6 @@
 """
-Step 4: Append matched records into database/csv_tables/adsorption_table.csv,
-        assign adsorption_ids, fill source columns, and de-duplicate.
-
+Step 4: Append matched records into database/csv_tables/adsorption_table.csv,assign adsorption_ids, fill source columns, and de-duplicate.
+        将匹配的记录追加到 database/csv_tables/adsorption_table.csv 中，分配 adsorption_ids，填充源列，并去重。
 Input:  outputs/matched_records.csv
         database/csv_tables/paper_table.csv   (for DOI lookup)
         database/csv_tables/adsorption_table.csv   (existing rows)
@@ -24,7 +23,7 @@ MATCHED_FILE = os.path.join(ROOT, "outputs", "matched_records.csv")
 ADSORPTION_TABLE = os.path.join(ROOT, "database", "csv_tables", "adsorption_table.csv")
 PAPER_TABLE = os.path.join(ROOT, "database", "csv_tables", "paper_table.csv")
 
-# Must match the header in adsorption_table.csv exactly
+# 必须与 adsorption_table.csv 的表头完全一致（用于重排列与补齐缺失列）
 TABLE_COLS = [
     "adsorption_id", "route_id", "sample_label", "activation_condition",
     "gas", "uptake_value", "uptake_unit", "temperature_k", "pressure_bar",
@@ -33,7 +32,7 @@ TABLE_COLS = [
     "source", "source_doi", "notes",
 ]
 
-# De-duplication key: rows that agree on all these fields are considered identical
+# 去重键：这些字段完全一致时视为重复记录
 DEDUP_KEYS = ["route_id", "gas", "temperature_k", "pressure_bar", "uptake_value"]
 
 
@@ -49,17 +48,17 @@ def main():
 
     new_rows = pd.read_csv(args.matched)
 
-    # Fill source / source_doi from paper_table
+    # 从 paper_table 回填来源信息，便于后续追溯原文献
     if os.path.exists(PAPER_TABLE):
         papers = pd.read_csv(PAPER_TABLE, usecols=["paper_id", "doi"])
         new_rows = new_rows.merge(papers, on="paper_id", how="left")
         new_rows["source"] = new_rows["paper_id"].astype(str)
         new_rows["source_doi"] = new_rows.get("doi", pd.Series(dtype=str))
 
-    # Load existing table
+    # 读取现有吸附表，与新数据拼接后统一去重
     existing = pd.read_csv(args.output)
 
-    # Determine next adsorption_id
+    # 生成连续 adsorption_id，避免与历史记录冲突
     if len(existing) and existing["adsorption_id"].notna().any():
         next_id = int(existing["adsorption_id"].max()) + 1
     else:
@@ -68,13 +67,13 @@ def main():
     new_rows = new_rows.reset_index(drop=True)
     new_rows["adsorption_id"] = range(next_id, next_id + len(new_rows))
 
-    # Ensure all schema columns are present
+    # 对齐目标表结构：缺的列补 None，多余列丢弃并按 TABLE_COLS 排序
     for col in TABLE_COLS:
         if col not in new_rows.columns:
             new_rows[col] = None
     new_rows = new_rows[TABLE_COLS]
 
-    # Combine and de-duplicate
+    # 先合并再按业务键去重，保留首次出现的记录
     combined = pd.concat([existing, new_rows], ignore_index=True)
     before = len(combined)
     valid_keys = [k for k in DEDUP_KEYS if k in combined.columns]
