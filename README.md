@@ -33,3 +33,22 @@ python scripts/reproduce_zeosyn_baseline.py
 - `outputs/baseline_rf/shap_global_importance.csv`
 - `outputs/baseline_rf/shap_class_sensitivity_top20.csv`
 - `outputs/baseline_rf/shap_summary.png`
+
+用 DeepSeek API 抽取吸附数据（候选定位 → 分块 → LLM 抽取 → 标准化 → route 匹配）：
+
+```bash
+export DEEPSEEK_API_KEY=your_key
+python scripts/extract_adsorption.py \
+  --input path/to/paper.pdf \
+  --out-dir outputs/adsorption_review
+```
+
+主要产物：
+
+- `outputs/adsorption_review/candidates.jsonl`
+- `outputs/adsorption_review/chunks.jsonl`
+- `outputs/adsorption_review/llm_raw.jsonl`
+- `outputs/adsorption_review/normalized_adsorption_records.jsonl`
+- `database/csv_tables/adsorption_table.csv`（默认追加写入）
+
+说明：`--input` 支持 `.pdf`、`.json`、`.jsonl`，也支持目录（可递归读取其中 PDF/JSON 文件）。
